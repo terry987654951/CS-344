@@ -1,0 +1,444 @@
+#!/bin/bash
+
+##############################################################
+#						 	     #
+#	name:Yuan-hao Cheng				     #
+#	e-mail:chengyua@oregonstate.edu			     #
+#						 	     #
+##############################################################
+
+
+
+
+	###################
+	#		  #	
+	# Global Variable #		
+	#		  #
+###################################
+matrix1="matrix1$$"
+matrix2="matrix2$$"
+tmp="tmp$$"
+tmp2="tmp2$$"
+tmp3="tmp3$$"
+tmp4="tmp4$$"
+###################################
+trap "rm -f {$matrix1,$matrix2,$tmp,$tmp2,$tmp3,$tmp4}; echo'ERROR'; exit 1" INT HUP TERM
+
+##############################################################
+#						 	     #
+#	scanMatrics()					     #
+#	Scan the Matrix from m1 or m2 and save.		     #
+#							     #
+##############################################################
+
+scanMatrics() {
+
+	# Devided into two ways    1)input from stdin    2)input from parameter
+	# Input from stdin (no input)
+	
+	if [ -z "$1" ]
+	then
+		cat > "$matrix1"
+		# Input from parameter (give file name)
+	else
+		cat $1 > "$matrix1"
+	fi
+	
+	if [ -n "$2" ]
+	then
+		cat $2 > "$matrix2"
+	fi
+
+}
+
+
+
+##############################################################
+#                                                            #
+#       calrc()                                              #
+#       Calculate the row and column of the matrix 	     #
+#	and save.          				     #
+#                                                            #
+#                                                            #
+##############################################################
+
+calrc() {
+
+	# Use scanMatrics() to scan the first matrix and save
+	# Read only one parameter
+	if [ -z "$2" ]
+	then
+		scanMatrics $1
+
+       		 # Calculate how many rows are there in the matrix
+        	row=0
+        	while read mxrow
+        	do
+                	row=$(expr $row + 1)
+	        done<$matrix1
+
+        	# Colculate how many columns are there in the matrix
+	        column=0
+        	read mxclm<$matrix1
+	        for i in $mxclm
+        	do
+                	column=$(expr $column + 1)
+	        done
+
+	# Read two parameters
+	else
+		scanMatrics $1 $2
+
+                 # Calculate how many rows are there in the matrix
+                row=0
+                while read mxrow
+                do
+                        row=$(expr $row + 1)
+                done<$matrix1
+
+                # Colculate how many columns are there in the matrix
+                column=0
+                read mxclm<$matrix1
+                for i in $mxclm
+                do
+                        column=$(expr $column + 1)
+                done
+
+	        # Calculate how many rows are there in the matrix
+        	rowt=0
+	        while read mxrow2
+        	do
+                	rowt=$(expr $rowt + 1)
+	        done<$matrix2
+
+        	# Colculate how many columns are there in the matrix
+	        columnt=0
+        	read mxclmt<$matrix2
+	        for i in $mxclmt
+        	do
+                	columnt=$(expr $columnt + 1)
+	        done
+	fi
+
+}
+
+
+##############################################################
+#							     #
+#	dims()						     #
+#	Scale the dimention of the matrix.		     #
+#						 	     #
+##############################################################
+
+
+dims() {
+	calrc $1
+	# Reference: http://linux.vbird.org/linux_basic/0320bash.php
+	# If the file is unreadable or is existant
+	if [ -f "$2" ] || ! [ -r $1 ]
+	then
+		echo "ERROR!!" 1>&2
+		exit 1
+	# Check if the file is existant
+	elif ! [ -f "$1" ]
+	then
+		# Check if there is a valid file
+		if ! [ -z "$1" ]
+		then
+			echo "ERROR!!" 1>&2
+			exit 1
+		fi
+	fi
+	# Print
+	echo "$row $column"
+}
+	
+
+
+
+##############################################################
+#						 	     #
+#	transpose()					     # 
+#	# Exchange the row and column of a matrix 	     #
+#						 	     #
+##############################################################
+
+transpose() {
+	# Read the matrix
+	calrc $1
+	# Label which row of the same column	
+	one=1
+	bool=0	# Whether the tamp file has been created, 0 = has not been created; otherwise, 1.
+
+	# While the number is less or equal to the total number of the column then do it.	
+	while [ $one -le $column ]
+	do
+		# current index
+		crtIndx=1
+		while read line
+		do
+		
+			# Make tmplime read and save the number read by line
+			tmpline=`echo $line | cut -d ' ' -f $one`
+			# If the tmp file hasn't been created, create tmp file and add number to the tmp. Then make bool becomes 1 (because tmp file has been created)
+			if [ $bool -eq 0 ]
+			then
+				printf "%s\t" $tmpline > $tmp
+				bool=1
+			else
+				# If the current index is not equal to the number of row, save the tmpline number in tmp file and add a tab in it. If it is the last number of row (equal to row), then save the number of tmpline to tmp and add an enter in it.. 
+				if [ $crtIndx -ne $row ]
+				then
+					printf "%s\t" $tmpline >> $tmp
+				else
+					echo $tmpline >> $tmp
+				fi
+ 			fi
+		
+			# crtIndx move to the next index.
+			crtIndx=$(expr $crtIndx + 1)
+		
+		done<$matrix1
+		# Move to the next row and read the number of the same column
+		one=$(expr $one + 1)
+	done
+	# Print out the content of tmp file
+	cat $tmp
+}
+
+
+
+##############################################################
+#                                                            #
+#	mean()                                               # 
+#       # Read a matrix and make the value of the same	     #
+#	# column add together and calculate its average      #
+#                                                            #
+##############################################################
+
+mean() {
+        # Read the matrix
+        calrc $1
+        # Label which row of the same column    
+        one=1
+        bool=0  # Whether the tamp file has been created, 0 = has not been created; otherwise, 1.
+        # While the number is less or equal to the total number of the column then do it.       
+	while [ $one -le $column ]
+        do
+                # current index
+                crtIndx=1
+		sum=0
+                while read line
+                do
+
+                        # Make tmplime read and save the number read by line
+                        tmpline=`echo $line | cut -d ' ' -f $one`
+
+                                # If the current index is not equal to the number of row, save the tmpline number in tmp2 file and add a tab in it. If it is the last number of row (equal to row), then save the number of tmpline to tmp and add an enter in it. 
+                                if [ $crtIndx -ne $row ]
+                                then
+                                	sum=$(expr $sum + $tmpline)
+                                else
+                                	sum=$(expr $sum + $tmpline)
+					summn=$(( ($sum + ($row/2)*(($sum>0)*2 - 1))  / $row ))
+						if [ $one -lt $column ]
+						then
+				                        # If the tmp2 file hasn't been created, create tmp2 file and add a mean-calculated number to the tmp2. Then, make bool becomes 1 (because tmp2 file has been created)
+							if [ $bool -eq 0 ]
+							then
+								printf "%s\t" $summn > $tmp2
+								bool=1
+							else
+								printf "%s\t" $summn >> $tmp2
+							fi
+						else
+							echo $summn >> $tmp2
+						fi
+				fi
+                        # crtIndx move to the next index.
+                        crtIndx=$(expr $crtIndx + 1)
+
+                done<$matrix1
+                # Move to the next row and read the number of the same column
+                one=$(expr $one + 1)
+        done
+        # Print out the content of tmp2 file
+        cat $tmp2
+}
+
+
+
+
+
+
+
+##############################################################
+#                                                            #
+#       add()                                                # 
+#       Add two matrics                                      #
+#                                                            #
+##############################################################
+
+add() {
+	
+	# Read two parameters
+	calrc $1 $2
+	
+	# Examine if they have the same dimention
+        if [ $row -eq $rowt ]
+	# Whether the tamp file has been created, 0 = has not been created; otherwise, 1.
+	bool=0
+        then
+                if [ $column -eq $columnt ]
+                then
+			for (( i=1; i<=$row; i++ ))
+			do
+				# Make tmpline and tmpline2 run each same index
+				crtIndx=1
+				# Read the each row and make line and line2 read them
+				line=`head -n $i $matrix1 | tail -n -1`
+				line2=`head -n $i $matrix2 | tail -n -1`
+
+				# Start from each column
+				for((j=1; j<=$column; j++))
+				do
+					sum=0
+					# Get the value of the specific number of the index
+					tmpline=`echo $line | cut -d ' ' -f $crtIndx`
+					tmpline2=`echo $line2 | cut -d ' ' -f $crtIndx`
+					if [ $bool -ne 1 ]
+					then
+						sum=$(expr $tmpline + $tmpline2)
+						bool=1
+						printf "%s\t" $sum > $tmp3
+					else
+						sum=$(expr $tmpline + $tmpline2)
+						if [ $j -eq $column ]
+						then
+							echo $sum >> $tmp3
+						else
+							printf "%s\t" $sum >> $tmp3
+						fi
+					fi	
+					crtIndx=$(expr $crtIndx + 1)
+				done
+			done
+
+
+               	else 
+                       	echo "ERROR COLUMN!!" 1>&2
+			exit 1
+               	fi
+       	else
+	      	echo "ERROR ROW!!" 1>&2
+		exit 1
+       	fi
+        cat $tmp3
+}
+
+
+
+##############################################################
+#                                                            #
+#       multiply()                                           # 
+#	# Make two matrics do multiply.                      #
+#                                                            #
+##############################################################
+
+multiply() {
+        calrc $1 $2
+        # Whether the tamp file has been created, 0 = has not been created; otherwise, 1.
+        bool=0
+		# Make sure the number of the first column of the matrix is as same as the number of the second row of the matrix.
+                if [ $column -eq $rowt ]
+                then
+			# Count from the m1's row
+                        for (( i=1; i<=$row; i++ ))
+                        do
+                                crtIndx=1
+                                line=`head -n $i $matrix1 | tail -n -1`
+				# Count from the m2's column
+                                for((j=1; j<=$columnt; j++))
+                                do
+					sum=0
+					# Count from the m1's column
+					for((k=1; k<=$column; k++))
+					do
+                                		line2=`head -n $k $matrix2 | tail -n -1`
+                                        	tmpline=`echo $line | cut -d ' ' -f $k`
+                                        	tmpline2=`echo $line2 | cut -d ' ' -f $j`
+                                                sum=$(($sum + ($tmpline * $tmpline2)))
+                                                if [ $k -eq $column ]
+                                        	then
+							# If the tmp4 file has been created
+							if [ $bool -ne 1 ]
+							then
+								bool=1
+								if [ $j -eq $columnt ]
+								then
+									echo $sum > $tmp4
+								else
+									printf "%s\t" $sum > $tmp4
+								fi
+							else
+                                                                if [ $j -eq $columnt ]
+                                                                then
+                                                                        echo $sum >> $tmp4
+                                                                else
+                                                                        printf "%s\t" $sum >> $tmp4
+								fi
+							fi
+                                        	fi
+					done
+                                done
+                        done
+                else
+                	echo "ERROR!! The column of the first matrix does not match the row of the second matrix!!" 1>&2
+                        exit 1
+                fi
+        cat $tmp4
+}
+
+
+
+
+##############################################################
+#						 	     #
+#	Check if there needs any function then call	     #
+#	the function	 	    			     #
+#						 	     #
+##############################################################
+
+
+
+
+# If start from dims, transpose, or mean, there will be up to 2 parameters, so if it is not 2 parameters, it will send an error.
+if [[ $1 == "dims" ]] || [[ $1 == "transpose" ]] || [[ $1 == "mean" ]]
+then
+	if [[ $# == 2 ]] || [[ $# == 1 ]]
+	then
+        	$1 "${@:2}"
+	else
+		echo "ERROR!! JUST 1 ARGS" 1>&2
+		exit 1
+	fi
+
+# If start from add or multiply, it should be three parameters, so if it is not 3 parameters, it will send an error.
+
+elif [[ $1 == "add" ]] || [[ $1 == "multiply" ]]
+then
+	if [[ $# == 3 ]]
+	then
+        	$1 "${@:2}" "${@:3}"
+	else
+		echo "ERROR!! JUST 2 ARGS" 1>&2
+		exit 1
+	fi
+
+# If you did not enter any parameter correctly, it will send an error.
+else
+        echo "ERROR!! It should be \"dims\", \"transpose\", \"mean\", \"add\", or \"multiply\"" 1>&2
+        exit 1
+fi
+
+# reference from: http://www.jb51.net/article/48686.htm
